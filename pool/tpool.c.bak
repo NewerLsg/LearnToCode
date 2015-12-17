@@ -1,0 +1,174 @@
+#include "tpool.h"
+
+#include <pthread.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+pool_t *pool_init(size_t size) {
+	pool_t *pool;
+	pthread_mutex_t *lock;
+
+	if (size < 0) {
+		size = MAXNODE;
+	}
+
+	pool = (pool_t *)malloc(sizeof(pool_t));
+	
+	if (pool == NULL) {
+		printf("pool init fail.");
+
+		return NULL;
+	}
+
+	lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+
+	if (pthread_mutex_init(lock, NULL) != 0) {
+		printf("lock init fail.");
+
+		return NULL;
+	}		
+
+	pool->max 	= size;
+	pool->useds = 0;
+	pool->used  = NULL;
+	pool->free  = NULL;
+	pool->lock  = lock;
+
+	return pool;
+}
+
+
+/*get resource from pool*/
+pnode_t *pool_get(pool_t *pool) {
+	pnode_t *pnode;
+
+	if (pool == NULL) return NULL;	
+	
+	pthread_mutex_lock((pthread_mutex_t *)pool->lock);
+	
+	if (pool->useds >= pool->max) {
+		printf("no more free node");
+
+		pthread_mutex_unlock(pool->lock);	
+
+		return NULL;
+	}
+
+	if (pool->free == NULL){
+		pnode = (pnode_t *)malloc(sizeof(pnode_t));	
+
+		if (pnode == NULL){
+			printf("create new node fail.");
+
+			pthread_mutex_unlock(pool->lock);	
+
+			return NULL;
+		}
+
+	} else {
+		pnode = pool->free;
+	
+		pool->free = (pnode_t *)((char*)node_get_next(pnode) - offset(pnode_t,node));
+
+		if (pool->free != NULL) {
+			node_set_prev(pool->free,NULL);
+		}
+	}
+
+	node_set_prev(pnode,NULL);
+	node_set_next(pnode,NULL);
+
+	if (pool->used != NULL)	{
+		node_set_next(pnode,&(pool->used->node));
+		node_set_prev(pool->used,&(pnode->node));
+	}
+	
+	pool->used = pnode;
+	pool->useds++;
+	pnode->pool = pool;
+
+	pthread_mutex_unlock((pthread_mutex_t *)pool->lock);	
+
+	return pnode;
+}
+
+
+/*	 free node 	*/
+int pool_free(pnode_t *pnode){
+	if (pnode == NULL) {
+		printf("node is null,no need to free.");
+		return -1;
+	}
+
+	pthread_mutex_lock((pthread_mutex_t *)pnode->pool->lock);
+
+	/*remove from used list*/
+
+	/*prev pointer	*/
+	if (node_get_prev(pnode) != NULL) {
+		pnode->node.prev->next = node_get_next(pnode);
+
+	} else {
+		pnode->pool->used =(pnode_t *)((char*)node_get_next(pnode) - offset(pnode_t,node));
+	}
+
+	/*next	pointer */
+	if (node_get_next(pnode)!= NULL) {
+		pnode->node.next->prev = node_get_prev(pnode);
+	}
+	
+	/*insert into free list	*/
+
+	node_set_prev(pnode,NULL);
+	node_set_next(pnode,NULL);
+
+	if (pnode->pool->free != NULL){
+		node_set_next(pnode,&(pnode->pool->free->node));
+		node_set_prev(pnode->pool->free,&(pnode->node));
+	}
+		
+	pnode->pool->free = pnode;	
+	pnode->pool->useds--;
+
+	pthread_mutex_unlock((pthread_mutex_t *)pnode->pool->lock);
+
+	return 0;
+}
+
+
+/*reset the pool*/
+void *pool_reset(pool_t *pool){
+	return pool;
+}
+
+
+/*destroy pool*/
+int pool_destroy(pool_t *pool) {
+	pnode_t *node;			
+
+	if (pool == NULL)  return 0; 
+
+	pthread_mutex_lock((pthread_mutex_t *)pool->lock);
+
+	while(pool->used) {
+		node = pool->used;
+
+		pool->used =(pnode_t *)((char*)node_get_next(pool->used) - offset(pnode_t,node));
+
+		free(node);
+	}		
+
+	while(pool->free) {
+		node = pool->free;
+
+		pool->free =(pnode_t *)((char*)node_get_next(pool->free) - offset(pnode_t,node));
+		free(node);
+	}		
+	
+	pthread_mutex_unlock((pthread_mutex_t *)pool->lock);
+	
+	free(pool->lock);
+	free(pool);
+	
+	return 0;		
+}

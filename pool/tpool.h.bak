@@ -1,0 +1,57 @@
+#ifndef TPOOL_H
+#define TPOOL_H
+
+#include<stddef.h>
+
+#define MAXNODE 128
+
+#define offset(st,mem) \
+		((int )&(((st *)0)->mem))
+
+#define node_get(pnode) &((pnode)->node)
+#define node_set(pnode,value) ((pnode)->node = (value))
+
+#define node_get_next(pnode) ((pnode)->node.next)
+#define node_get_prev(pnode) ((pnode)->node.prev)
+
+#define node_set_next(pnode,value) ((pnode)->node.next = (value))
+#define node_set_prev(pnode,value) ((pnode)->node.prev = (value))
+
+typedef struct pool_s pool_t;
+typedef struct list_s list_t;
+typedef struct pnode_s pnode_t;
+
+struct list_s {
+	void 		*data;
+	list_t 		*prev;
+	list_t 		*next;
+};
+
+struct pnode_s {
+	list_t 		node;	 	/* in the list	*/
+	pool_t 		*pool;	  	/* in which pool */
+};
+
+struct pool_s {
+	size_t 		max;	 	/*nodes count*/ 
+	size_t 		useds; 	 	/*node used*/ 
+	pnode_t 	*used;		/*used nodes*/
+	pnode_t		*free;
+	void 		*lock;
+};
+
+/*init pool  */
+pool_t *pool_init(size_t size);
+
+/*get resource from pool*/
+pnode_t *pool_get(pool_t *pool);
+
+int pool_free(pnode_t *node);
+
+/*reset the pool*/
+void *pool_reset(pool_t *pool);
+
+/*destroy pool*/
+int pool_destroy(pool_t *pool);
+
+#endif

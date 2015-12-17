@@ -1,0 +1,120 @@
+/*test tpool*/
+
+#include "tpool.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+typedef void *(*fn)(int argc,void *argv);
+
+typedef struct threadmsg_s threadmsg_t;  
+
+struct threadmsg_s {
+	pthread_t tid;
+	pthread_mutex_t lock;	
+	pthread_cond_t cond;	
+	fn func;
+	int argc;
+	void *argv;
+	void *ret;
+	unsigned char isfree;
+};
+
+
+void *fun(void *args);
+void *func(int argc, void *argv);
+
+int
+main(void){
+	pool_t 		*pool;	
+	pnode_t 	*pnode;
+	int 		i;
+
+	pool = pool_init(10);
+	
+	if (pool == NULL) {
+		printf("init fail.");
+		return -1;
+	}
+
+	for (i = 0;i < 15;i++) {
+		printf("i:%d\t",i);		
+		pnode = pool_get(pool);
+
+		if (pnode != NULL) {
+			threadmsg_t *tmsg = pnode->node.data;			
+
+			if (tmsg == NULL){
+				printf("create new tmsg.\n");
+
+				tmsg = (threadmsg_t *)malloc(sizeof(threadmsg_t));
+
+				pthread_mutex_init(&(tmsg->lock),NULL);	
+
+				pthread_cond_init(&(tmsg->cond),NULL);
+
+				tmsg->isfree = 1;
+				pnode->node.data = tmsg;
+
+				int err = pthread_create(&(tmsg->tid), NULL, fun ,tmsg);
+
+				if (err != 0) {
+					printf("thread create fail,%lu.\n", (unsigned long)tmsg->tid);
+				}
+			} 
+
+			tmsg->func = &func;			
+			tmsg->argc = 1;
+			
+			char *str = (char *)malloc(64);
+			
+			sprintf(str,"[%d]:process...",i);
+
+			tmsg->argv = str;
+			
+			pthread_mutex_lock(&(tmsg->lock));	
+
+			tmsg->isfree = 0;	
+			
+			pthread_mutex_unlock(&(tmsg->lock));	
+			
+			pthread_cond_signal(&(tmsg->cond));
+			
+		}
+		sleep(2);
+		pool_free(pnode);
+
+	}
+
+	while(1);
+	pool_destroy(pool);	
+
+	return 0;
+}
+
+void *fun(void *args) {
+	threadmsg_t *tmsg = (threadmsg_t *)args;		
+	
+	while(1) {
+
+		pthread_mutex_lock(&(tmsg->lock));
+
+		while(tmsg->isfree == 1) {
+			pthread_cond_wait(&(tmsg->cond), &(tmsg->lock));
+		}
+		
+		tmsg->isfree = 1;		
+
+		pthread_mutex_unlock(&(tmsg->lock));		
+
+		tmsg->ret = tmsg->func(tmsg->argc,tmsg->argv);
+	}	
+
+	return (void *)0;
+}
+
+void *func(int argc, void *argv) {
+	printf("argc:%d,argv:%s,tid:%lu,pid:%lu\n",argc,(char *)argv,(unsigned long) pthread_self(),(unsigned long) getpid());
+	return NULL;
+}
