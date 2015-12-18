@@ -3,11 +3,22 @@
 #include<stdlib.h>
 #include<sys/time.h>
 
+#define  rand_p 0.2
+
 #define isBiger(a,b,type) \
 	(*((type *)(a)) > *((type *)(b)) ? 1 : 0)
 
 #define isEqual(a,b,type) \
 	(*((type *)(a)) ==  *((type *)(b)) ? 1 : 0)
+
+//get from redis's source code 
+unsigned get_rand_high() {
+	int i = 1;
+	
+	while((random()&0xFFFF) < (rand_p * 0xFFFF)) i++;
+
+	return (i < MAXLEVEL )? i : MAXLEVEL;	
+}
 
 splt_head_t *
 skip_list_init() {
@@ -56,7 +67,8 @@ skip_list_node_init(void *value, unsigned int high) {
 
 splt_node_t *
 skip_list_insert(splt_head_t *head, void *value) {
-	unsigned int rand_high, base, i;
+	unsigned int base;
+   	int 	i;
 	unsigned int high; 
 	splt_node_t *new_node, *tmp, *pos;
 
@@ -70,14 +82,8 @@ skip_list_insert(splt_head_t *head, void *value) {
 		base = head->high;
 	}	
 
-//	srand((unsigned)time(NULL));
-
-	rand_high = rand()%base + 1;
-
-	printf("high:%u,base:[%u],rh:[%u]\n",head->high ,base, rand_high);
-
 	//初始化一个节点
-	new_node = skip_list_node_init(value, rand_high);
+	new_node = skip_list_node_init(value, get_rand_high());
 
 	if (new_node == NULL) {
 		return NULL;	
@@ -87,8 +93,10 @@ skip_list_insert(splt_head_t *head, void *value) {
 
 	//新节点比头结点高
 	if (head->high < new_node->high) {
+		for( i = head->high; i< new_node->high; i++ ){
+			head->next[i] = new_node;				
+		}
 		head->high = new_node->high;
-		head->next[head->high - 1] = new_node;				
 	}
 	
 	pos = head;
@@ -133,33 +141,50 @@ skip_list_remove_v(splt_head_t *head, void *value) {
 
 void 
 skip_list_remove_n(splt_head_t *head, splt_node_t *node) {
-	unsigned high;
-	splt_node_t *pos,*tmp;
+	int i;
+	splt_node_t *pos;
 	
 	pos = head;
-	high = head->high;
+	i = head->high;
+	
+	for (i = head->high - 1; i >= 0; i--) {
+		while(pos->next[i]){
+			if (isEqual(pos->next[i]->value, node->value, int)) {
+				pos->next[i] = node->next[i];
+				break;
 
-	while ((pos!= NULL) && (high > 0)) {
+			} else if (!isBiger(pos->next[i]->value, node->value, int)) {
+				pos = pos->next[i];
 
-  		if (pos->next[high -1] == NULL) {
-			high--;
-			continue;
-		}		
-		
-		tmp = pos->next[high - 1];	
-
-		if (isBiger(tmp->value, node->value, int)) {
-			high--;	
-
-		}else if(isEqual(tmp->value, node->value, int)) {
-			pos->next[high -1 ] = node->next[ high - 1];
-			high--;
-
-		}else {
-			pos = pos->next[high - 1];
+			} else {
+				break;		
+			}
 		}
 	}
-	
+
+/*		
+ *    while ((pos!= NULL) && (high > 0)) {
+ *
+ *  		if (pos->next[high -1] == NULL) {
+ *            high--;
+ *            continue;
+ *        }		
+ *        
+ *        tmp = pos->next[high - 1];	
+ *
+ *        if (isBiger(tmp->value, node->value, int)) {
+ *            high--;	
+ *
+ *        }else if(isEqual(tmp->value, node->value, int)) {
+ *            pos->next[high -1 ] = node->next[ high - 1];
+ *            high--;
+ *
+ *        }else {
+ *            pos = pos->next[high - 1];
+ *        }
+ *    }
+ *    
+ */
 	free(node);
 
 	return ;
@@ -174,35 +199,29 @@ skip_list_destroy(splt_head_t *head) {
 		head = head->next[0];
 		free(tmp);
 	}
-			
+	
 	return ;
 }
 
 splt_node_t *
 skip_list_find(splt_node_t *head, void *value) {
-	unsigned high;
-	splt_node_t *pos,*tmp;
+	unsigned i;
+	splt_node_t *pos;
 	
 	pos = head;
-	high = head->high;
+	i = head->high;
 
-	while ((pos!= NULL) && (high > 0)) {
+	for (i = head->high - 1; i >= 0; i--) {
+		while(pos->next[i]){
+			if (isEqual(pos->next[i]->value, value, int)) {
+				return pos->next[i];
 
-  		if (pos->next[high -1] == NULL) {
-			high--;
-			continue;
-		}		
-		
-		tmp = pos->next[high - 1];	
+			} else if (!isBiger(pos->next[i]->value, value, int)) {
+				pos = pos->next[i];
 
-		if (isBiger(tmp->value, value, int)) {
-			high--;	
-
-		}else if(isEqual(tmp->value, value, int)) {
-			return tmp;
-
-		}else {
-			pos = pos->next[high - 1];
+			} else {
+				break;		
+			}
 		}
 	}
 
