@@ -175,8 +175,11 @@ void *thread_cycle(void *argv) {
 void thread_destroy(thread_t *thread){
 	task_t *task, *tmp;	
 	
+
 	if (thread == NULL) return ;
 	
+	pthread_join(thread->thd.tid, NULL);	
+
 	pthread_mutex_destroy(&thread->thd.lock);	
 
 	pthread_cond_destroy(&thread->thd.cond);	

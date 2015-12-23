@@ -25,6 +25,7 @@ main(void) {
 
 	if (tp == NULL) {
 		printf("fail to get thread.");
+		free(tpool);
 		return -1;
 	}
 
@@ -48,9 +49,10 @@ main(void) {
 	pthread_cond_signal(&tp->thd.cond);
 
 	
-	while(1);
-	
 	printf("in main :pid[%lu],tid[%lu],process ....\n",(unsigned long)getpid(),(unsigned long)pthread_self());
+
+	sleep(5);
+	thread_pool_destroy(tpool);
 
 	return 0;
 }
