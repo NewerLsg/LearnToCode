@@ -3,7 +3,32 @@
 #include<vector>
 #include<stdlib.h>
 
+/**
+	splitStringCXX:c++实现主要利用string的find成员函数	
+	splitString:c实现主要利用cstring的index函数	
+*/
 using namespace std;
+void splitStringCXX(const string &src, char delima, vector<string> &vec) {
+	if (src.empty()) return ;
+				
+	string tmp(src); 
+
+	cout<<tmp<<endl;
+
+	while(!tmp.empty()) {
+		size_t pos = tmp.find(delima);
+
+		if (pos == string::npos) {
+			break;
+		}
+		cout<<tmp.substr(0,pos)<<endl;
+		vec.push_back(tmp.substr(0,pos));
+		tmp.erase(0,pos + 1);
+																
+	}
+	vec.push_back(tmp);	
+
+}
 
 void splitString(const char* src, char delima, vector<string> &vec) {
 	if (src == NULL) return ;	
