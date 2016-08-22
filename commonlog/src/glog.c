@@ -1,8 +1,6 @@
 /**
- *
- * 
+ * file:glog.c
  */
-
 #include "glog.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,12 +9,16 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
-log_t *g_log;
+static log_t *g_log = NULL;
+
 
 static void vlog2file(const char* path, const char* format,va_list vp);
 static char* getTime();
 
+
 unsigned int init(char* path, int level){
+
+	if (g_log != NULL) free(g_log);
 
 	g_log = (log_t *)malloc(sizeof(log_t) + 64);
 
@@ -27,11 +29,18 @@ unsigned int init(char* path, int level){
 	return 0;
 }
 
+
 char* getpath(){
-	return g_log->path;
+	if(g_log != NULL){
+		return g_log->path;
+	}
 }
 
+
 void log2file(const char *format, ...){
+
+	if(g_log == NULL) return ;
+
 	va_list vp;
 
 	va_start(vp,format);
@@ -56,6 +65,7 @@ static void vlog2file(const char* path, const char* format,va_list vp){
 
 	fclose(fp);
 }
+
 
 static char* getTime(){
 	struct timeval now;

@@ -78,7 +78,7 @@ void HeapSort(int* array,int length){
 	for(i = length ;i > 0 ;i--){
 		int temp = array[1];
  		array[1] = array[i];
-   		array[i ] = temp;
+   		array[i] = temp;
 												 
 		MaxHeapify(array,i - 1 ,1);//每次置换后调整
 	}

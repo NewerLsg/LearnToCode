@@ -7,7 +7,8 @@ CFLAGS=-g
 VPATH=src
 
 SOURCES=main.c \
-		glog.c
+		glog.c \
+		test.c
 
 OBJECTS=$(SOURCES:.c=.o)
 

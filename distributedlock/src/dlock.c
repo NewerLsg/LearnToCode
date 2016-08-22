@@ -36,6 +36,7 @@ static int execReidsCommand(char* command){
 	return 0;
 }
 
+
 int getLock(char* name)
 {
 	char cmdBuf[128] = {0};
